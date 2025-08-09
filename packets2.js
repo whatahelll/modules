@@ -283,7 +283,100 @@ window.HabboPackets = (function() {
             return 0;
         }
     }
-
+// Adicione esta função ao módulo HabboPackets
+function parseFurniturePacket(packet, header) {
+    try {
+        if (header === Headers.Incoming.FURNITURE_FLOOR) {
+            const furnitureCount = packet.readInt();
+            window.HabboUI.log(`🪑 Processando ${furnitureCount} móveis no chão`);
+            
+            for (let i = 0; i < furnitureCount; i++) {
+                try {
+                    const furni = new window.Furni(packet);
+                    
+                    // Adicionar à sala
+                    if (window.HabboCore && window.HabboCore.room) {
+                        window.HabboCore.room.addFurni(furni);
+                    }
+                    
+                    // Adicionar ao sistema de colorir se ativo
+                    if (window.HabboColoring && window.HabboColoring.isActive && window.HabboColoring.gameBoard) {
+                        window.HabboColoring.gameBoard.addDetectedFurniture(
+                            furni.id, 
+                            furni.x, 
+                            furni.y, 
+                            furni.spriteId, 
+                            furni.state
+                        );
+                    }
+                    
+                    window.HabboUI.log(`🪑 Móvel #${i+1}: ID:${furni.id} Sprite:${furni.spriteId} Pos:(${furni.x},${furni.y}) Estado:${furni.state}`);
+                } catch (e) {
+                    window.HabboUI.log(`❌ Erro ao processar móvel ${i+1}: ${e.message}`);
+                    // Continuar processando os próximos móveis
+                    continue;
+                }
+            }
+            
+            // Log resumo
+            const totalFurnis = window.HabboCore.room ? window.HabboCore.room.getFurniCount() : 0;
+            window.HabboUI.log(`📊 Total de móveis na sala: ${totalFurnis}`);
+            
+        }
+        else if (header === Headers.Incoming.FURNITURE_FLOOR_ADD) {
+            try {
+                const furni = new window.Furni(packet);
+                
+                if (window.HabboCore && window.HabboCore.room) {
+                    window.HabboCore.room.addFurni(furni);
+                }
+                
+                if (window.HabboColoring && window.HabboColoring.isActive && window.HabboColoring.gameBoard) {
+                    window.HabboColoring.gameBoard.addDetectedFurniture(
+                        furni.id, 
+                        furni.x, 
+                        furni.y, 
+                        furni.spriteId, 
+                        furni.state
+                    );
+                }
+                
+                window.HabboUI.log(`➕ Móvel adicionado: ID:${furni.id} Sprite:${furni.spriteId} Pos:(${furni.x},${furni.y}) Estado:${furni.state}`);
+            } catch (e) {
+                window.HabboUI.log(`❌ Erro ao processar móvel adicionado: ${e.message}`);
+            }
+        }
+        else if (header === Headers.Incoming.FURNITURE_STATE) {
+            try {
+                const furniId = packet.readInt();
+                const newState = packet.readInt();
+                
+                if (window.HabboColoring && window.HabboColoring.isActive && window.HabboColoring.gameBoard) {
+                    window.HabboColoring.gameBoard.updateFurnitureState(furniId, newState);
+                }
+                
+                window.HabboUI.log(`🔄 Estado do móvel ID:${furniId} atualizado para:${newState}`);
+            } catch (e) {
+                window.HabboUI.log(`❌ Erro ao processar mudança de estado: ${e.message}`);
+            }
+        }
+        else if (header === Headers.Incoming.FURNITURE_FLOOR_REMOVE) {
+            try {
+                const furniId = packet.readInt();
+                
+                if (window.HabboCore && window.HabboCore.room) {
+                    window.HabboCore.room.removeFurni(furniId);
+                }
+                
+                window.HabboUI.log(`➖ Móvel removido ID:${furniId}`);
+            } catch (e) {
+                window.HabboUI.log(`❌ Erro ao processar remoção de móvel: ${e.message}`);
+            }
+        }
+    } catch (e) {
+        window.HabboUI.log(`❌ Erro geral no parser de móveis: ${e.message}`);
+    }
+}
     function sendPacket(header, ...args) {
         const gameSocket = window.HabboCore ? window.HabboCore.gameSocket : null;
         
